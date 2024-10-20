@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Векторизатор изображений</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        #dropArea {
+            border: 2px dashed #007bff;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            margin-top: 20px;
+            transition: background-color 0.3s, border-color 0.3s;
+            background-color: #ffffff;
+        }
+        #dropArea.hover {
+            background-color: #e7f1ff;
+            border-color: #0056b3;
+        }
+        #uploadButton, #downloadButton {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        #uploadButton:hover, #downloadButton:hover {
+            background-color: #0056b3;
+        }
+        #loadingMessage {
+            display: none;
+            margin-top: 20px;
+            font-size: 1.2em;
+            color: #007bff;
+            text-align: center;
+        }
+        #gallery {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .image-container {
+            margin: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            overflow: hidden;
+            background-color: #ffffff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        img {
+            max-width: 150px;
+            max-height: 150px;
+            border-radius: 5px 5px 0 0;
+        }
+        .image-container p {
+            margin: 10px 0;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Векторизатор изображений</h1>
+<div id="dropArea">Перетащите ваши изображения сюда или нажмите для загрузки</div>
+<button id="uploadButton" style="display: none;">Загрузить и векторизовать</button>
+<button id="downloadButton" style="display: none;">Скачать архив</button>
+<div id="loadingMessage">Изображения загружаются...</div>
+
+<div id="gallery"></div>
+
+<script>
+    const dropArea = document.getElementById('dropArea');
+    const uploadButton = document.getElementById('uploadButton');
+    const downloadButton = document.getElementById('downloadButton');
+    const loadingMessage = document.getElementById('loadingMessage');
+    let filesToUpload = [];
+
+    // Подсвечиваем область перетаскивания при наведении
+    dropArea.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        dropArea.classList.add('hover');
+    });
+
+    // Убираем подсветку, когда не перетаскивают
+    dropArea.addEventListener('dragleave', () => {
+        dropArea.classList.remove('hover');
+    });
+
+    // Обработка сброса файлов
+    dropArea.addEventListener('drop', (event) => {
+        event.preventDefault();
+        dropArea.classList.remove('hover');
+        const files = event.dataTransfer.files;
+        handleFiles(files);
+    });
+
+    // Обработка клика для открытия диалогового окна выбора файлов
+    dropArea.addEventListener('click', () => {
+        document.getElementById('fileInput').click();
+    });
+
+    // Обработка изменения выбора файлов
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.id = 'fileInput';
+    fileInput.multiple = true;
+    fileInput.style.display = 'none';
+    fileInput.addEventListener('change', (event) => {
+        const files = event.target.files;
+        handleFiles(files);
+    });
+    document.body.appendChild(fileInput);
+
+    // Функция для обработки файлов
+    function handleFiles(files) {
+        filesToUpload = Array.from(files);
+        uploadButton.style.display = 'block';
+        gallery.innerHTML = ''; // Очистка предыдущих изображений
+        filesToUpload.forEach(file => displayImage(file));
+    }
+
+    // Загрузка и векторизация файлов
+    uploadButton.addEventListener('click', async () => {
+        if (filesToUpload.length === 0) {
+            alert('Пожалуйста, выберите файлы.');
+            return;
+        }
+
+        // Показать сообщение о загрузке
+        loadingMessage.style.display = 'block';
+
+        const formData = new FormData();
+        filesToUpload.forEach(file => {
+            formData.append('files', file);
+        });
+
+        try {
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error('Не удалось загрузить файлы');
+            }
+
+            const result = await response.blob();
+            const url = URL.createObjectURL(result);
+            downloadButton.style.display = 'block';
+            downloadButton.onclick = () => {
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'vectorized_files.zip';
+                a.click();
+            };
+        } catch (error) {
+            alert('Ошибка: ' + error.message);
+        } finally {
+            // Скрыть сообщение о загрузке после обработки
+            loadingMessage.style.display = 'none';
+        }
+    });
+
+    // Отображение изображения в галерее
+    function displayImage(file) {
+        const gallery = document.getElementById('gallery');
+        const reader = new FileReader();
+
+        reader.onload = (event) => {
+            const imgContainer = document.createElement('div');
+            imgContainer.className = 'image-container';
+            imgContainer.innerHTML = `<img src="${event.target.result}" alt="${file.name}"><p>${file.name}</p>`;
+            gallery.appendChild(imgContainer);
+        };
+
+        reader.readAsDataURL(file);
+    }
+</script>
+
+</body>
+</html>
